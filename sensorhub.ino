@@ -42,9 +42,9 @@ String currentDoor;
 String prevDoor;
 
 // Wifi + Server Configuration
-const char* ssid = "Stewies Place 2.4Ghz";
-const char* password = "fishnchipsisnasty";
-const char* mqtt_server = "192.0.0.166";
+const char* ssid = "*****";
+const char* password = "*****";
+const char* mqtt_server = "*****";
 
 //MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
