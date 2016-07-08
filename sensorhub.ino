@@ -1,6 +1,9 @@
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <DHT.h>
+#include <ESP8266mDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 #define DHTTYPE DHT22
 #define DHTPIN D6
 
@@ -8,6 +11,10 @@ DHT dht(DHTPIN, DHTTYPE);
 float humidity, temp_c, temp_f;          // Values read from DHT22
 unsigned long previousMillis = 0;        // will store last temp was read
 const long interval = 5000;              // interval at which to read sensor
+
+//OTA Config
+const char* deviceName = "ESP8266-Hall-Sensors";
+const char* OTAPass = "update";
 
 //Pins for sensors
 const int pir = D7;
@@ -106,6 +113,11 @@ void setup() {
   Serial.begin(115200);
   dht.begin(); 
   delay(100);
+
+  //OTA Setup
+  WiFi.mode(WIFI_STA);
+  ArduinoOTA.setPassword(OTAPass);
+  ArduinoOTA.setHostname(deviceName);
   
   Serial.println("");
   Serial.println("Sensor Box Initiating");
@@ -115,8 +127,30 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
-  //wait a bit before starting the main loop
-  delay(2000);
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(5000);
+    ESP.restart();
+  }
+
+  ArduinoOTA.onStart([]() {
+    Serial.println("Start");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
 }
 
 void gettemperature() {
@@ -238,6 +272,9 @@ void loop(){
 
   //maintain MQTT connection
   client.loop();
+
+  //OTA handler
+  ArduinoOTA.handle();
   
   if (!client.connected()) {
     reconnect();
